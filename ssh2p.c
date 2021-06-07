@@ -196,7 +196,22 @@ cleanup:
 
 void print_usage(const char* arg0)
 {
-    printf("Usage: %s [-l listen_ip] [-p listen_port] [-f form_field] [-n filename] [-t timeout] [-r rsa_key] upstream_url\n", arg0);
+    printf(
+        "Usage: %s [OPTIONS] upstream_url\n\n"
+        "OPTIONS:\n"
+        "  -l <listen_ip>    IP to listen on (default: %s)\n"
+        "  -p <listen_port>  port to listen on (default: %s)\n"
+        "  -f <form_field>   name of the HTML form field for the uploaded file (default: %s)\n"
+        "  -n <filename>     name of the uploaded file (default: %s)\n"
+        "  -t <timeout>      SSH receive timeout in seconds (default: %d)\n"
+        "  -r <rsa_key>      RSA ID file (default: %s)\n",
+        arg0,
+        DEFAULT_LISTEN_IP,
+        DEFAULT_PORT,
+        DEFAULT_FORM_FIELD,
+        DEFAULT_FILENAME,
+        DEFAULT_TIMEOUT,
+        DEFAULT_RSAKEY);
 }
 
 int main(int argc, char* argv[])
