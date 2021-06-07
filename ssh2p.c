@@ -159,7 +159,6 @@ void* thread(void* arg)
     CURLcode curl_res = curl_easy_perform(curl);
     curl_mime_free(mime);
     curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
 
     int sent;
     if (curl_res == CURLE_ABORTED_BY_CALLBACK && cc->err != NULL)
@@ -182,6 +181,8 @@ void* thread(void* arg)
     {
         printf("%s\nssh_channel_write() failed\n", cc->ip);
     }
+
+    curl_easy_cleanup(curl);
 
 cleanup:
     ssh_channel_send_eof(cc->sshchannel);
