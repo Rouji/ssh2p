@@ -17,6 +17,10 @@ static const char* DEFAULT_LISTEN_IP = "0.0.0.0";
 static const char* DEFAULT_FORM_FIELD = "file";
 static const char* DEFAULT_FILENAME = "file";
 static const char* DEFAULT_RSAKEY = "id_rsa";
+static const int DEFAULT_TIMEOUT = 5;
+
+static const char* err_recv_timeout = "Error: receive timeout\n";
+static const char* err_post = "Error: POST to upstream failed\n";
 
 struct curl_response
 {
@@ -31,9 +35,18 @@ struct client_connection
     const char* filename;
     ssh_session sshsession;
     ssh_channel sshchannel;
+    CURL* curl;
+    char ip[INET6_ADDRSTRLEN];
     struct curl_response resp;
-    int err;
+    const char* err;
 };
+
+void curl_close_socket(CURL* curl)
+{
+    curl_socket_t sock;
+    curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &sock);
+    close(sock);
+}
 
 size_t curl_read_cb(char* buffer, size_t size, size_t nitems, void* user)
 {
@@ -43,7 +56,15 @@ size_t curl_read_cb(char* buffer, size_t size, size_t nitems, void* user)
     int ret = ssh_channel_read(cc->sshchannel, buffer, realsize, 0);
     if (ret == SSH_ERROR)
     {
-        fprintf(stderr, "ssh_channel_read() failed\n");
+        printf("%s\tssh_channel_read() failed\n", cc->ip);
+        curl_close_socket(cc->curl);
+        return CURL_READFUNC_ABORT;
+    }
+    if (ret == 0 && !ssh_channel_is_eof(cc->sshchannel))
+    {
+        printf("%s\tssh_channel_read timed out\n", cc->ip);
+        cc->err = err_recv_timeout;
+        curl_close_socket(cc->curl);
         return CURL_READFUNC_ABORT;
     }
     return ret;
@@ -60,8 +81,8 @@ size_t curl_write_cb(void* data, size_t size, size_t nitems, void* user)
     void* new = realloc(cc->resp.data, cc->resp.size + realsize + 1);
     if (new == NULL)
     {
-        fprintf(stderr, "realloc() failed: %s\n", strerror(errno));
-        cc->err = errno;
+        fprintf(stderr, "%s\trealloc() failed: %s\n", cc->ip, strerror(errno));
+        curl_close_socket(cc->curl);
         return -1;
     }
     cc->resp.data = new;
@@ -119,9 +140,10 @@ void* thread(void* arg)
     socklen_t addrlen = sizeof(client_addr);
     getpeername(ssh_get_fd(cc->sshsession), (struct sockaddr*)&client_addr, &addrlen);
     char xff[INET6_ADDRSTRLEN + 20];
-    snprintf(xff, sizeof(xff), "X-Forwarded-For: %s", inet_ntoa(client_addr.sin_addr));
+    strcpy(cc->ip, inet_ntoa(client_addr.sin_addr));
+    snprintf(xff, sizeof(xff), "X-Forwarded-For: %s", cc->ip);
 
-    CURL* curl = curl_easy_init();
+    CURL* curl = cc->curl = curl_easy_init();
     struct curl_slist* headers = curl_slist_append(NULL, xff);
     curl_mime* mime = curl_mime_init(curl);
     curl_mimepart* part = curl_mime_addpart(mime);
@@ -139,19 +161,24 @@ void* thread(void* arg)
     curl_easy_cleanup(curl);
 
     int sent;
-    if (curl_res != CURLE_OK)
+    if (cc->err != NULL)
     {
-        fprintf(stderr, "curl error: %s\n", curl_easy_strerror(curl_res));
-        static const char* post_err = "Error POSTing to upstream server";
-        sent = ssh_channel_write(cc->sshchannel, post_err, strlen(post_err)+1);
+        sent = ssh_channel_write(cc->sshchannel, cc->err, strlen(cc->err)+1);
+    }
+    else if (curl_res != CURLE_OK)
+    {
+        fprintf(stderr, "%s\tUnexpected curl error: %s\n", cc->ip, curl_easy_strerror(curl_res));
+        sent = ssh_channel_write(cc->sshchannel, err_post, strlen(err_post)+1);
     }
     else
     {
-        sent = ssh_channel_write(cc->sshchannel, cc->resp.data, cc->resp.size);
+        int code;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+        sent = (code == 200 ? ssh_channel_write : ssh_channel_write_stderr)(cc->sshchannel, cc->resp.data, cc->resp.size);
     }
     if (sent == SSH_ERROR)
     {
-        printf("ssh_channel_write() failed");
+        printf("%s\nssh_channel_write() failed\n", cc->ip);
     }
 
 cleanup:
@@ -165,7 +192,7 @@ cleanup:
 
 void print_usage(const char* arg0)
 {
-    printf("Usage: %s [-l listen_ip] [-p listen_port] [-f form_field] [-n filename] [-r rsa_key] upstream_url\n", arg0);
+    printf("Usage: %s [-l listen_ip] [-p listen_port] [-f form_field] [-n filename] [-t timeout] [-r rsa_key] upstream_url\n", arg0);
 }
 
 int main(int argc, char* argv[])
@@ -176,6 +203,7 @@ int main(int argc, char* argv[])
     const char* arg_form_field = DEFAULT_FORM_FIELD;
     const char* arg_filename = DEFAULT_FILENAME;
     const char* arg_rsakey = DEFAULT_RSAKEY;
+    int arg_timeout = DEFAULT_TIMEOUT;
     int opt;
     while ((opt = getopt(argc, argv, "l:p:t:f:n:r:")) != -1)
     {
@@ -186,6 +214,7 @@ int main(int argc, char* argv[])
             case 'f': arg_form_field = optarg; break;
             case 'n': arg_filename = optarg; break;
             case 'r': arg_rsakey = optarg; break;
+            case 't': arg_timeout = atoi(optarg); break;
             default:
                 print_usage(argv[0]);
                 return 1;
@@ -244,6 +273,8 @@ int main(int argc, char* argv[])
             fprintf(stderr, "ssh_bind_accept() failed: %s\n", ssh_get_error(sshbind));
             goto cleanup;
         }
+
+        ssh_options_set(cc->sshsession, SSH_OPTIONS_TIMEOUT, &arg_timeout);
 
         pthread_t t;
         if (pthread_create(&t, NULL, thread, cc) != 0)
