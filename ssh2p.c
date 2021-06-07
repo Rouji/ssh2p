@@ -95,6 +95,7 @@ size_t curl_write_cb(void* data, size_t size, size_t nitems, void* user)
 void* thread(void* arg)
 {
     struct client_connection* cc = (struct client_connection*) arg;
+    int exit_status = 1;
 
     if (ssh_handle_key_exchange(cc->sshsession) != 0)
     {
@@ -161,7 +162,7 @@ void* thread(void* arg)
     curl_easy_cleanup(curl);
 
     int sent;
-    if (cc->err != NULL)
+    if (curl_res == CURLE_ABORTED_BY_CALLBACK && cc->err != NULL)
     {
         sent = ssh_channel_write(cc->sshchannel, cc->err, strlen(cc->err)+1);
     }
@@ -175,6 +176,7 @@ void* thread(void* arg)
         int code;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
         sent = (code == 200 ? ssh_channel_write : ssh_channel_write_stderr)(cc->sshchannel, cc->resp.data, cc->resp.size);
+        exit_status = code != 200;
     }
     if (sent == SSH_ERROR)
     {
@@ -182,6 +184,8 @@ void* thread(void* arg)
     }
 
 cleanup:
+    ssh_channel_send_eof(cc->sshchannel);
+    ssh_channel_request_send_exit_status(cc->sshchannel, exit_status);
     ssh_channel_close(cc->sshchannel);
     ssh_disconnect(cc->sshsession);
     ssh_free(cc->sshsession);
