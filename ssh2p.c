@@ -97,12 +97,13 @@ void* thread(void* arg)
     struct client_connection* cc = (struct client_connection*) arg;
     int exit_status = 1;
 
+    ssh_set_auth_methods(cc->sshsession, SSH_AUTH_METHOD_NONE | SSH_AUTH_METHOD_PUBLICKEY);
+
     if (ssh_handle_key_exchange(cc->sshsession) != 0)
     {
         goto cleanup;
     }
 
-    int authed = 0;
     int type;
     int subtype;
     ssh_message sshmsg;
@@ -119,7 +120,6 @@ void* thread(void* arg)
         {
             case SSH_REQUEST_AUTH:
                 ssh_message_auth_reply_success(sshmsg, 0);
-                authed = 1;
                 break;
             case SSH_REQUEST_CHANNEL_OPEN:
                 if (subtype == SSH_CHANNEL_SESSION)
@@ -130,8 +130,6 @@ void* thread(void* arg)
                     ssh_message_channel_request_reply_success(sshmsg);
                 break;
             default:
-                if (!authed)
-                    ssh_message_auth_set_methods(sshmsg, SSH_AUTH_METHOD_NONE);
                 ssh_message_reply_default(sshmsg);
         }
         ssh_message_free(sshmsg);
