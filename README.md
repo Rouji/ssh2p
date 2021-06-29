@@ -11,7 +11,7 @@ ninja -C build
 cd build; meson install
 ```
 
-# Running Server-Side
+# Running this on the Server-Side
 Hopefully somewhat self-explanatory: 
 ```
 ./ssh2p
@@ -27,10 +27,10 @@ OPTIONS:
 ```
 You can generate an RSA key using `ssh-keygen -t rsa -f id_rsa`  
 
-The `X-Forwarded-For` is set to the client's IP in the POST request to upstream, so you can do your logging there. 
+The `X-Forwarded-For` is set to the client's IP in the POST request to upstream, so you can do your logging in your web server. The stdout/err of this program is more for debugging purposes than anything else. 
 
 # Client-Side Usage
-Assuming you've got [something like this](https://github.com/Rouji/single_php_filehost) running on `example.com` port 22:  
+If you've got this and [some file host](https://github.com/Rouji/single_php_filehost) running on `example.com`:  
 ```bash
 # echo this is some text | ssh example.com
 Pseudo-terminal will not be allocated because stdin is not a terminal.
