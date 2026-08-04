@@ -135,11 +135,21 @@ void* thread(void* arg)
         ssh_message_free(sshmsg);
     } while (cc->sshchannel == NULL);
 
-    struct sockaddr_in client_addr;
+    struct sockaddr_storage client_addr;
     socklen_t addrlen = sizeof(client_addr);
     getpeername(ssh_get_fd(cc->sshsession), (struct sockaddr*)&client_addr, &addrlen);
     char xff[INET6_ADDRSTRLEN + 20];
-    strcpy(cc->ip, inet_ntoa(client_addr.sin_addr));
+    const void* addr_data = NULL;
+    if (client_addr.ss_family == AF_INET) {
+        addr_data = &((struct sockaddr_in*)&client_addr)->sin_addr;
+    } else if (client_addr.ss_family == AF_INET6) {
+        addr_data = &((struct sockaddr_in6*)&client_addr)->sin6_addr;
+    }
+    if (addr_data != NULL && inet_ntop(client_addr.ss_family, addr_data, cc->ip, sizeof(cc->ip)) == NULL) {
+        strcpy(cc->ip, "unknown");
+    } else if (addr_data == NULL) {
+        strcpy(cc->ip, "unknown");
+    }
     snprintf(xff, sizeof(xff), "X-Forwarded-For: %s", cc->ip);
 
     CURL* curl = cc->curl = curl_easy_init();
