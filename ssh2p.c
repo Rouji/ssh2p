@@ -336,7 +336,7 @@ int main(int argc, char* argv[])
 
         if (ssh_options_set(cc->sshsession, SSH_OPTIONS_TIMEOUT, &arg_timeout) < 0)
         {
-            fprintf(stderr, "ssh_options_set(..., SSH_OPTIONS_TIMEOUT, ...) failed: %s\n", ssh_get_error(sshbind));
+            fprintf(stderr, "ssh_options_set(..., SSH_OPTIONS_TIMEOUT, ...) failed: %s\n", ssh_get_error(cc->sshsession));
             goto cleanup;
         }
 
