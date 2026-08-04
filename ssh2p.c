@@ -334,25 +334,25 @@ int main(int argc, char* argv[])
         if ((cc->sshsession = ssh_new()) == NULL)
         {
             fprintf(stderr, "ssh_new() failed\n");
-            goto cleanup;
+            goto error_cleanup;
         }
         if (ssh_bind_accept(sshbind, cc->sshsession) == SSH_ERROR)
         {
             fprintf(stderr, "ssh_bind_accept() failed: %s\n", ssh_get_error(sshbind));
-            goto cleanup;
+            goto error_cleanup;
         }
 
         if (ssh_options_set(cc->sshsession, SSH_OPTIONS_TIMEOUT, &arg_timeout) < 0)
         {
             fprintf(stderr, "ssh_options_set(..., SSH_OPTIONS_TIMEOUT, ...) failed: %s\n", ssh_get_error(cc->sshsession));
-            goto cleanup;
+            goto error_cleanup;
         }
 
         if (atomic_fetch_add(&active_connections, 1) >= MAX_CONNECTIONS)
         {
             fprintf(stderr, "max connections (%d) reached, rejecting\n", MAX_CONNECTIONS);
             atomic_fetch_sub(&active_connections, 1);
-            goto cleanup;
+            goto error_cleanup;
         }
 
         pthread_t t;
@@ -360,12 +360,12 @@ int main(int argc, char* argv[])
         {
             fprintf(stderr, "pthread_create() failed\n");
             atomic_fetch_sub(&active_connections, 1);
-            goto cleanup;
+            goto error_cleanup;
         }
         pthread_detach(t);
         continue;
 
-cleanup:
+error_cleanup:
         ssh_free(cc->sshsession);
         free(cc);
     }
