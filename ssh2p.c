@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <curl/curl.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -11,6 +12,9 @@
 #include <errno.h>
 #include <signal.h>
 #include <libssh/server.h>
+
+static const int MAX_CONNECTIONS = 64;
+static _Atomic int active_connections = 0;
 
 static const char* DEFAULT_PORT = "22";
 static const char* DEFAULT_LISTEN_IP = "0.0.0.0";
@@ -207,6 +211,7 @@ cleanup:
     ssh_disconnect(cc->sshsession);
     ssh_free(cc->sshsession);
     free(cc->resp.data);
+    atomic_fetch_sub(&active_connections, 1);
     free(cc);
     return 0;
 }
@@ -316,10 +321,18 @@ int main(int argc, char* argv[])
             goto cleanup;
         }
 
+        if (atomic_fetch_add(&active_connections, 1) >= MAX_CONNECTIONS)
+        {
+            fprintf(stderr, "max connections (%d) reached, rejecting\n", MAX_CONNECTIONS);
+            atomic_fetch_sub(&active_connections, 1);
+            goto cleanup;
+        }
+
         pthread_t t;
         if (pthread_create(&t, NULL, thread, cc) != 0)
         {
             fprintf(stderr, "pthread_create() failed\n");
+            atomic_fetch_sub(&active_connections, 1);
             goto cleanup;
         }
         pthread_detach(t);
