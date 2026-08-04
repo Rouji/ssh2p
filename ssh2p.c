@@ -14,6 +14,7 @@
 #include <libssh/server.h>
 
 static const int MAX_CONNECTIONS = 64;
+static const size_t MAX_RESPONSE_SIZE = 16 * 1024 * 1024; // 16 MiB
 static _Atomic int active_connections = 0;
 
 static const char* DEFAULT_PORT = "22";
@@ -82,7 +83,14 @@ size_t curl_write_cb(void* data, size_t size, size_t nitems, void* user)
     {
         return 0;
     }
-    void* new = realloc(cc->resp.data, cc->resp.size + realsize + 1);
+    size_t new_size = cc->resp.size + realsize + 1;
+    if (new_size < cc->resp.size || cc->resp.size + realsize > MAX_RESPONSE_SIZE)
+    {
+        fprintf(stderr, "%s\tresponse too large or overflow\n", cc->ip);
+        curl_close_socket(cc->curl);
+        return 0;
+    }
+    void* new = realloc(cc->resp.data, new_size);
     if (new == NULL)
     {
         fprintf(stderr, "%s\trealloc() failed: %s\n", cc->ip, strerror(errno));
