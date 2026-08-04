@@ -116,6 +116,7 @@ void* thread(void* arg)
 
     if (ssh_handle_key_exchange(cc->sshsession) != 0)
     {
+        fprintf(stderr, "key exchange failed: %s\n", ssh_get_error(cc->sshsession));
         goto cleanup;
     }
 
@@ -126,6 +127,7 @@ void* thread(void* arg)
     {
         if ((sshmsg = ssh_message_get(cc->sshsession)) == NULL)
         {
+            fprintf(stderr, "ssh_message_get failed: %s\n", ssh_get_error(cc->sshsession));
             goto cleanup;
         }
 
