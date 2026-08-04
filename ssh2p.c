@@ -193,9 +193,12 @@ void* thread(void* arg)
     curl_easy_cleanup(curl);
 
 cleanup:
-    ssh_channel_send_eof(cc->sshchannel);
-    ssh_channel_request_send_exit_status(cc->sshchannel, exit_status);
-    ssh_channel_close(cc->sshchannel);
+    if (cc->sshchannel != NULL)
+    {
+        ssh_channel_send_eof(cc->sshchannel);
+        ssh_channel_request_send_exit_status(cc->sshchannel, exit_status);
+        ssh_channel_close(cc->sshchannel);
+    }
     ssh_disconnect(cc->sshsession);
     ssh_free(cc->sshsession);
     free(cc->resp.data);
