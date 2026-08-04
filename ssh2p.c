@@ -136,7 +136,10 @@ void* thread(void* arg)
         switch (type)
         {
             case SSH_REQUEST_AUTH:
-                ssh_message_auth_reply_success(sshmsg, 0);
+                if (ssh_message_auth_reply_success(sshmsg, 0) != 0)
+                {
+                    fprintf(stderr, "auth reply failed: %s\n", ssh_get_error(cc->sshsession));
+                }
                 break;
             case SSH_REQUEST_CHANNEL_OPEN:
                 if (subtype == SSH_CHANNEL_SESSION)
