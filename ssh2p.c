@@ -83,7 +83,7 @@ size_t curl_write_cb(void* data, size_t size, size_t nitems, void* user)
     {
         fprintf(stderr, "%s\trealloc() failed: %s\n", cc->ip, strerror(errno));
         curl_close_socket(cc->curl);
-        return -1;
+        return 0;
     }
     cc->resp.data = new;
     memcpy(cc->resp.data + cc->resp.size, data, realsize);
