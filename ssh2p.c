@@ -22,7 +22,7 @@ static const char* DEFAULT_LISTEN_IP = "0.0.0.0";
 static const char* DEFAULT_FORM_FIELD = "file";
 static const char* DEFAULT_FILENAME = "file";
 static const char* DEFAULT_RSAKEY = "id_rsa";
-static const long DEFAULT_TIMEOUT = 5;
+static const int DEFAULT_TIMEOUT = 5;
 
 static const char* err_recv_timeout = "Error: receive timeout\n";
 static const char* err_post = "Error: POST to upstream failed\n";
@@ -233,7 +233,7 @@ void print_usage(const char* arg0)
         "  -p <listen_port>  port to listen on (default: %s)\n"
         "  -f <form_field>   name of the HTML form field for the uploaded file (default: %s)\n"
         "  -n <filename>     name of the uploaded file (default: %s)\n"
-        "  -t <timeout>      SSH receive timeout in seconds (default: %ld)\n"
+        "  -t <timeout>      SSH receive timeout in seconds (default: %d)\n"
         "  -r <rsa_key>      RSA ID file (default: %s)\n",
         arg0,
         DEFAULT_LISTEN_IP,
@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
     const char* arg_form_field = DEFAULT_FORM_FIELD;
     const char* arg_filename = DEFAULT_FILENAME;
     const char* arg_rsakey = DEFAULT_RSAKEY;
-    long arg_timeout = DEFAULT_TIMEOUT;
+    int arg_timeout = DEFAULT_TIMEOUT;
     int opt;
     while ((opt = getopt(argc, argv, "l:p:t:f:n:r:")) != -1)
     {
@@ -263,7 +263,18 @@ int main(int argc, char* argv[])
             case 'f': arg_form_field = optarg; break;
             case 'n': arg_filename = optarg; break;
             case 'r': arg_rsakey = optarg; break;
-            case 't': arg_timeout = atol(optarg); break;
+            case 't':
+            {
+                char* endptr;
+                long val = strtol(optarg, &endptr, 10);
+                if (*endptr != '\0' || val <= 0 || val > 3600)
+                {
+                    fprintf(stderr, "invalid timeout: %s (must be 1-3600)\n", optarg);
+                    return 1;
+                }
+                arg_timeout = (int)val;
+                break;
+            }
             default:
                 print_usage(argv[0]);
                 return 1;
