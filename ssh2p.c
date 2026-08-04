@@ -61,7 +61,7 @@ size_t curl_read_cb(char* buffer, size_t size, size_t nitems, void* user)
     struct client_connection* cc = (struct client_connection*)user;
     size_t realsize = size * nitems;
 
-    int ret = ssh_channel_read(cc->sshchannel, buffer, realsize, 0);
+    int ret = ssh_channel_read(cc->sshchannel, buffer, (uint32_t)realsize, 0);
     if (ret == SSH_ERROR)
     {
         printf("%s\tssh_channel_read() failed\n", cc->ip);
@@ -75,7 +75,7 @@ size_t curl_read_cb(char* buffer, size_t size, size_t nitems, void* user)
         curl_close_socket(cc->curl);
         return CURL_READFUNC_ABORT;
     }
-    return ret;
+    return (size_t)ret;
 }
 
 size_t curl_write_cb(void* data, size_t size, size_t nitems, void* user)
@@ -196,18 +196,18 @@ void* thread(void* arg)
     int sent;
     if (curl_res == CURLE_ABORTED_BY_CALLBACK && cc->err != NULL)
     {
-        sent = ssh_channel_write(cc->sshchannel, cc->err, strlen(cc->err)+1);
+        sent = ssh_channel_write(cc->sshchannel, cc->err, (uint32_t)(strlen(cc->err)+1));
     }
     else if (curl_res != CURLE_OK)
     {
         fprintf(stderr, "%s\tUnexpected curl error: %s\n", cc->ip, curl_easy_strerror(curl_res));
-        sent = ssh_channel_write(cc->sshchannel, err_post, strlen(err_post)+1);
+        sent = ssh_channel_write(cc->sshchannel, err_post, (uint32_t)(strlen(err_post)+1));
     }
     else
     {
         int code;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
-        sent = (code == 200 ? ssh_channel_write : ssh_channel_write_stderr)(cc->sshchannel, cc->resp.data, cc->resp.size);
+        sent = (code == 200 ? ssh_channel_write : ssh_channel_write_stderr)(cc->sshchannel, cc->resp.data, (uint32_t)cc->resp.size);
         exit_status = code != 200;
     }
     if (sent == SSH_ERROR)
