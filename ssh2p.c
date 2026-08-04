@@ -49,8 +49,11 @@ struct client_connection
 void curl_close_socket(CURL* curl)
 {
     curl_socket_t sock;
-    curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &sock);
-    close(sock);
+    if (curl_easy_getinfo(curl, CURLINFO_ACTIVESOCKET, &sock) == CURLE_OK &&
+        sock != CURL_SOCKET_BAD)
+    {
+        close(sock);
+    }
 }
 
 size_t curl_read_cb(char* buffer, size_t size, size_t nitems, void* user)
