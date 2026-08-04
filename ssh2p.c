@@ -153,6 +153,11 @@ void* thread(void* arg)
     snprintf(xff, sizeof(xff), "X-Forwarded-For: %s", cc->ip);
 
     CURL* curl = cc->curl = curl_easy_init();
+    if (curl == NULL)
+    {
+        fprintf(stderr, "%s\tcurl_easy_init() failed\n", cc->ip);
+        goto cleanup;
+    }
     struct curl_slist* headers = curl_slist_append(NULL, xff);
     curl_mime* mime = curl_mime_init(curl);
     curl_mimepart* part = curl_mime_addpart(mime);
