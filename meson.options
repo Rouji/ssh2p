@@ -1,0 +1,2 @@
+option('static_build', type: 'boolean', value: false,
+  description: 'Fully statically link the executable (for scratch containers)')

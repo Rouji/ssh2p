@@ -41,6 +41,16 @@ The messages about the pseudo-terminal and closed connection (while annoying) ar
 `ssh2p` will send an exit status of 0 if everything went OK and it got a 200 back from the upstream, so you can do `ssh example.com && echo "success!"` etc.  
 Error messages are sent through, and will come out of `ssh` as, stderr.  
 
+# Docker
+A fully static binary in a `FROM scratch` image (~1.2 MB, only the binary + CA certs):
+```bash
+docker build -t ssh2p .
+docker run -d -p 22:22 -v "$PWD/id_rsa:/id_rsa:ro" ssh2p https://example.com/upload.php
+```
+The image contains no shell, no libc (musl is statically linked), nothing else. RSA key
+needs to be mounted and is read at runtime (`-r` default `id_rsa`).  
+CA certs are baked in at `/etc/ssl/certs/ca-certificates.crt`, which is the compile-time curl default
+
 # Privacy
 Apart from passing the client IP on to the upstream, this doesn't do any data hoovering.  
 *Could* it log usernames, public keys, passwords? Absolutely. But it doesn't. There's nothing in the code to do that.  

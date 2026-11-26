@@ -260,7 +260,7 @@ int main(int argc, char* argv[])
     const char* arg_form_field = DEFAULT_FORM_FIELD;
     const char* arg_filename = DEFAULT_FILENAME;
     const char* arg_rsakey = DEFAULT_RSAKEY;
-    int arg_timeout = DEFAULT_TIMEOUT;
+    long arg_timeout = DEFAULT_TIMEOUT;
     int opt;
     while ((opt = getopt(argc, argv, "l:p:t:f:n:r:")) != -1)
     {
